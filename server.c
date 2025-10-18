@@ -86,7 +86,11 @@ void handle_client_request(const char *request) {
             size_t bytes_read = fread(content, sizeof(char), read_size, fp);
             content[bytes_read] = '\0'; // null terminator 확실히 설정
             
-            write(client_fd, content, strlen(content));
+            // 읽기 응답: 데이터 + 바이트 수 정보
+            char response[512];
+            snprintf(response, sizeof(response), "Read completed: %zu bytes\n--- File Content ---\n%s\n--- End of File ---\n", 
+                    bytes_read, content);
+            write(client_fd, response, strlen(response));
             fclose(fp);
         }
     } else if (strcmp(mode, "w") == 0) {
@@ -95,9 +99,10 @@ void handle_client_request(const char *request) {
             char err[] = "Error: cannot open file for writing\n";
             write(client_fd, err, strlen(err));
         } else {
-            fwrite(data, sizeof(char), strlen(data), fp);
-            char msg[] = "Write success\n";
-            write(client_fd, msg, strlen(msg));
+            size_t bytes_written = fwrite(data, sizeof(char), strlen(data), fp);
+            char response[100];
+            snprintf(response, sizeof(response), "Write completed: %zu bytes written\n", bytes_written);
+            write(client_fd, response, strlen(response));
             fclose(fp);
         }
     } else {
@@ -134,7 +139,9 @@ int main() {
                 exit(0);
             } else if (pid > 0) {
                 // 부모 프로세스: 자식이 완료될 때까지 대기
-                wait(NULL);
+                int status;
+                waitpid(pid, &status, 0);
+                printf("[SERVER] Child process %d completed with status %d\n", pid, WEXITSTATUS(status));
             }
         }
     }
